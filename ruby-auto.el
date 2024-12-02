@@ -1,4 +1,4 @@
-;;; ruby-auto.el --- Ruby-environment auto-configuration tool for Emacs -*- lexical-binding: t -*-
+;;; ruby-auto.el --- Ruby-environment auto-configuration tool for GNU Emacs -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2024 Kyle Belleau
 
@@ -22,7 +22,7 @@
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; ruby-auto is an automatic environment configuration tool which inspects a
+;; `ruby-auto' is an automatic environment configuration tool which inspects a
 ;; '.ruby-version' file in the buffer's directory tree to configure
 ;; necessary environment variables in Emacs.
 
@@ -123,31 +123,42 @@ If the file is not found, return nil and display an error message."
             ;; unset exec-path and set all variables and path
             (progn
               (funcall set-vars)
-              (ruby-auto--unset-exec-path current-ruby-root
+              (ruby-auto--unset-path current-ruby-root
                                           current-gem-home)
-              (ruby-auto--set-exec-path ruby-root gem-home)
+              (ruby-auto-set-path ruby-root gem-home)
               (message "[ruby-auto]: using %s" ruby-root)))
 
         ;; if RUBY_ROOT is not set, we'll set all of our vars
         (progn
           (funcall set-vars)
-          (ruby-auto--set-exec-path ruby-root gem-home)
+          (ruby-auto-set-path ruby-root gem-home)
           (message "[ruby-auto]: using %s" ruby-root))))))
 
-(defun ruby-auto--set-exec-path (ruby-root gem-home)
-  "Sets `exec-path' in our Emacs' environment."
+(defun ruby-auto-set-path (ruby-root gem-home)
+  "Sets `exec-path' and `PATH' in our Emacs' environment."
   (let ((ruby-root-bin (concat (file-name-as-directory ruby-root) "bin"))
         (gem-home-bin (concat (file-name-as-directory gem-home) "bin")))
 
     (add-to-list 'exec-path ruby-root-bin)
-    (add-to-list 'exec-path gem-home-bin)))
+    (add-to-list 'exec-path gem-home-bin)
 
-(defun ruby-auto--unset-exec-path (ruby-root gem-home)
-  "Removes old paths from `exec-path' in our Emacs' environment."
+    (setenv "PATH" (concat
+                    ruby-root-bin ":" gem-home-bin ":"
+                    (getenv "PATH")))))
+
+(defun ruby-auto--unset-path (ruby-root gem-home)
+  "Removes old paths from `exec-path' and `PATH' in our Emacs' environment."
   (let ((ruby-root-bin (concat (file-name-as-directory ruby-root) "bin"))
         (gem-home-bin (concat (file-name-as-directory gem-home) "bin")))
 
-    (setq exec-path (remove ruby-root-bin (remove gem-home-bin exec-path)))))
+    (setq exec-path (remove ruby-root-bin (remove gem-home-bin exec-path)))
+
+    (setenv "PATH"
+            (replace-regexp-in-string (regexp-quote (concat ruby-root-bin ":"))
+                                      "" (getenv "PATH")))
+    (setenv "PATH"
+            (replace-regexp-in-string (regexp-quote (concat gem-home-bin ":"))
+                                      "" (getenv "PATH")))))
 
 ;; interactive function
 (defun ruby-auto ()
